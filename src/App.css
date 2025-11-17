@@ -60,7 +60,7 @@ body {
 /* Preview (미리보기) */
 .preview-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 18px;
 }
@@ -89,6 +89,20 @@ body {
 .preview-sub {
   font-size: 11px;
   color: var(--text-sub);
+}
+
+/* D-day chip */
+.dday-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 /* Tabs */
@@ -223,21 +237,6 @@ body {
   box-shadow: 0 6px 12px rgba(236, 72, 153, 0.25);
 }
 
-.btn-secondary {
-  position: relative;
-  border-radius: 999px;
-  border: 1px solid rgba(248, 113, 170, 0.5);
-  background: #fff5fa;
-  padding: 8px 14px;
-  font-size: 13px;
-  cursor: pointer;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--accent-strong);
-}
-
 .btn-ghost {
   border: none;
   border-radius: 999px;
@@ -302,6 +301,7 @@ body {
   font-size: 12px;
 }
 
+/* 기본 배경 */
 .calendar-cell-active {
   background: #f9fafb;
   cursor: default;
@@ -311,12 +311,40 @@ body {
   background: transparent;
 }
 
+/* 토/일 */
+.calendar-weekend {
+  background: #fee2e2;
+}
+
+/* 오늘 */
 .calendar-today {
   background: var(--accent-soft);
   border: 1px solid rgba(248, 113, 170, 0.7);
   font-weight: 600;
 }
 
+/* 중요 일정 있는 날짜 */
+.calendar-important {
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.3);
+}
+
+.calendar-cell-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.calendar-day-number {
+  font-size: 12px;
+}
+
+.calendar-important-dot {
+  font-size: 10px;
+  color: #dc2626;
+}
+
+/* 아래 안내 문구 */
 .calendar-footer {
   margin-top: 10px;
   font-size: 12px;
@@ -426,54 +454,6 @@ body {
 .todo-priority-low {
   background: #e0f2fe;
   color: #075985;
-}
-
-/* Gallery */
-.gallery-upload {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 10px;
-}
-
-.photo-card {
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.photo-img {
-  width: 100%;
-  height: 130px;
-  object-fit: cover;
-}
-
-.photo-info {
-  padding: 6px 8px 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.photo-title {
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.photo-date {
-  font-size: 11px;
-  color: var(--text-sub);
 }
 
 /* Etc */

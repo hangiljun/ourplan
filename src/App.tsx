@@ -1,7 +1,7 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent } from "react";
 import "./App.css";
 
-type Section = "calendar" | "todo" | "gallery";
+type Section = "calendar" | "todo";
 
 type TodoPriority = "low" | "medium" | "high";
 
@@ -14,16 +14,8 @@ interface TodoItem {
   done: boolean;
 }
 
-interface PhotoItem {
-  id: string;
-  title: string;
-  createdAt: string;
-  dataUrl: string; // base64
-}
-
 const LOCAL_STORAGE_KEYS = {
   TODOS: "love-planner-todos",
-  PHOTOS: "love-planner-photos",
 };
 
 function getTodayDateString() {
@@ -31,6 +23,26 @@ function getTodayDateString() {
   const month = `${d.getMonth() + 1}`.padStart(2, "0");
   const day = `${d.getDate()}`.padStart(2, "0");
   return `${d.getFullYear()}-${month}-${day}`;
+}
+
+function calcDDay(dueDateStr: string) {
+  const today = new Date();
+  const todayMid = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
+  const [y, m, d] = dueDateStr.split("-").map(Number);
+  const due = new Date(y, (m as number) - 1, d as number);
+  const diffMs = due.getTime() - todayMid.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+function formatDateString(y: number, mZeroBased: number, d: number) {
+  const month = `${mZeroBased + 1}`.padStart(2, "0");
+  const day = `${d}`.padStart(2, "0");
+  return `${y}-${month}-${day}`;
 }
 
 const App: React.FC = () => {
@@ -55,10 +67,6 @@ const App: React.FC = () => {
     priority: "medium",
   });
 
-  // Gallery
-  const [photos, setPhotos] = useState<PhotoItem[]>([]);
-  const [photoTitle, setPhotoTitle] = useState("");
-
   // ----- LocalStorage Load -----
   useEffect(() => {
     try {
@@ -69,25 +77,12 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Failed to load todos", e);
     }
-
-    try {
-      const rawPhotos = localStorage.getItem(LOCAL_STORAGE_KEYS.PHOTOS);
-      if (rawPhotos) {
-        setPhotos(JSON.parse(rawPhotos));
-      }
-    } catch (e) {
-      console.error("Failed to load photos", e);
-    }
   }, []);
 
   // ----- LocalStorage Save -----
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEYS.TODOS, JSON.stringify(todos));
   }, [todos]);
-
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.PHOTOS, JSON.stringify(photos));
-  }, [photos]);
 
   // ----- Calendar helpers -----
   const goPrevMonth = () => {
@@ -191,32 +186,7 @@ const App: React.FC = () => {
     return "· 여유";
   };
 
-  // ----- Photo Handlers -----
-  const handlePhotoFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const newPhoto: PhotoItem = {
-        id: crypto.randomUUID(),
-        title: photoTitle.trim() || file.name,
-        createdAt: new Date().toISOString(),
-        dataUrl,
-      };
-      setPhotos((prev) => [newPhoto, ...prev]);
-      setPhotoTitle("");
-      e.target.value = "";
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const deletePhoto = (id: string) => {
-    setPhotos((prev) => prev.filter((p) => p.id !== id));
-  };
-
-  // ----- Preview (미리보기) -----
+  // ----- Preview (미리보기 / D-day) -----
   const todayString = getTodayDateString();
 
   const upcomingTodos = todos
@@ -230,12 +200,20 @@ const App: React.FC = () => {
     });
 
   const nextTodo = upcomingTodos[0];
+  const nextTodoDDay = nextTodo ? calcDDay(nextTodo.dueDate) : null;
 
   const totalTodos = todos.length;
   const doneTodos = todos.filter((t) => t.done).length;
   const overdueTodos = todos.filter(
     (t) => !t.done && t.dueDate < todayString
   ).length;
+
+  // ----- Calendar Important (중요 일정) -----
+  // 중요도 high 인 일정들을 날짜 Set 로 관리
+  const importantDateSet = new Set<string>();
+  todos
+    .filter((t) => t.priority === "high")
+    .forEach((t) => importantDateSet.add(t.dueDate));
 
   // ----- Render Sections -----
   const renderCalendar = () => {
@@ -264,21 +242,46 @@ const App: React.FC = () => {
         <div className="calendar-body">
           {weeks.map((week, i) => (
             <div key={i} className="calendar-row">
-              {week.map((d, j) => (
-                <div
-                  key={j}
-                  className={`calendar-cell ${
-                    d ? "calendar-cell-active" : "calendar-cell-empty"
-                  } ${isToday(d) ? "calendar-today" : ""}`}
-                >
-                  {d ?? ""}
-                </div>
-              ))}
+              {week.map((d, j) => {
+                const isWeekend = j === 0 || j === 6; // 일(0), 토(6)
+                const dateStr =
+                  d != null ? formatDateString(year, month, d) : null;
+                const isImportant =
+                  d != null && dateStr
+                    ? importantDateSet.has(dateStr)
+                    : false;
+
+                return (
+                  <div
+                    key={j}
+                    className={[
+                      "calendar-cell",
+                      d ? "calendar-cell-active" : "calendar-cell-empty",
+                      isToday(d) ? "calendar-today" : "",
+                      isWeekend ? "calendar-weekend" : "",
+                      isImportant ? "calendar-important" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    {d != null && (
+                      <div className="calendar-cell-inner">
+                        <span className="calendar-day-number">{d}</span>
+                        {isImportant && (
+                          <span className="calendar-important-dot">
+                            ●
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
         <div className="calendar-footer">
-          🌸 둘만의 기념일, 데이트 약속을 달력에 적어두고 같이 확인해 보세요.
+          🌸 중요 일정(★)은 달력에 붉은 점으로 표시돼요.
         </div>
       </div>
     );
@@ -357,7 +360,8 @@ const App: React.FC = () => {
         <div className="todo-list">
           {sorted.length === 0 && (
             <div className="empty-text">
-              아직 등록된 할 일이 없어요.  
+              아직 등록된 할 일이 없어요.
+              <br />
               둘이 같이 하고 싶은 일을 하나 적어볼까요? 💌
             </div>
           )}
@@ -399,63 +403,6 @@ const App: React.FC = () => {
     );
   };
 
-  const renderGallery = () => {
-    return (
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">우리 사진 앨범</div>
-          <div className="card-subtitle">
-            함께한 시간들을 사진으로 남겨 보세요 📷
-          </div>
-        </div>
-
-        <div className="gallery-upload">
-          <input
-            className="input"
-            placeholder="사진 제목 (예: 첫 여행, 첫 데이트)"
-            value={photoTitle}
-            onChange={(e) => setPhotoTitle(e.target.value)}
-          />
-          <label className="btn-secondary">
-            사진 선택
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoFileChange}
-              style={{ display: "none" }}
-            />
-          </label>
-        </div>
-
-        <div className="gallery-grid">
-          {photos.length === 0 && (
-            <div className="empty-text">
-              아직 등록된 사진이 없어요.  
-              둘이 찍은 사진을 하나 올려볼까요? 💑
-            </div>
-          )}
-          {photos.map((p) => (
-            <div key={p.id} className="photo-card">
-              <img src={p.dataUrl} alt={p.title} className="photo-img" />
-              <div className="photo-info">
-                <div className="photo-title">{p.title}</div>
-                <div className="photo-date">
-                  {new Date(p.createdAt).toLocaleDateString("ko-KR")}
-                </div>
-              </div>
-              <button
-                className="btn-ghost"
-                onClick={() => deletePhoto(p.id)}
-              >
-                삭제
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="app-root">
       <div className="app-container">
@@ -468,7 +415,7 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* 미리보기 카드 */}
+        {/* 상단 미리보기 + D-day */}
         <section className="preview-row">
           <div className="preview-card">
             <div className="preview-label">오늘</div>
@@ -486,12 +433,19 @@ const App: React.FC = () => {
           </div>
 
           <div className="preview-card">
-            <div className="preview-label">다음 데이트 / 일정</div>
+            <div className="preview-label">다음 일정</div>
             {nextTodo ? (
               <>
                 <div className="preview-main">{nextTodo.title}</div>
                 <div className="preview-sub">
-                  📅 {nextTodo.dueDate} · {getPriorityLabel(nextTodo.priority)}
+                  📅 {nextTodo.dueDate} · {getPriorityLabel(nextTodo.priority)}{" "}
+                  {nextTodoDDay !== null && (
+                    <span className="dday-chip">
+                      {nextTodoDDay === 0
+                        ? "D-Day"
+                        : `D-${nextTodoDDay}`}
+                    </span>
+                  )}
                 </div>
               </>
             ) : (
@@ -510,16 +464,7 @@ const App: React.FC = () => {
               할 일 {doneTodos}/{totalTodos}
             </div>
             <div className="preview-sub">
-              🔥 미완료 {totalTodos - doneTodos}개,  
-              ⏰ 지남 {overdueTodos}개
-            </div>
-          </div>
-
-          <div className="preview-card">
-            <div className="preview-label">사진</div>
-            <div className="preview-main">{photos.length}장</div>
-            <div className="preview-sub">
-              둘만의 추억이 점점 쌓이고 있어요 📸
+              🔥 미완료 {totalTodos - doneTodos}개, ⏰ 지남 {overdueTodos}개
             </div>
           </div>
         </section>
@@ -537,18 +482,11 @@ const App: React.FC = () => {
           >
             해야 할 일
           </button>
-          <button
-            className={`nav-tab ${section === "gallery" ? "active" : ""}`}
-            onClick={() => setSection("gallery")}
-          >
-            사진 앨범
-          </button>
         </nav>
 
         <main className="app-main">
           {section === "calendar" && renderCalendar()}
           {section === "todo" && renderTodo()}
-          {section === "gallery" && renderGallery()}
         </main>
 
         <footer className="app-footer">
